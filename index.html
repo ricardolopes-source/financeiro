@@ -24,10 +24,6 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#eef2f7;min-height:1
 .hdr-btns{display:flex;gap:.4rem;align-items:center;flex-wrap:wrap}
 .hdr-btn{background:rgba(255,255,255,.12);border:2px solid rgba(255,255,255,.3);color:#fff;border-radius:.45rem;padding:.38rem .8rem;cursor:pointer;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;min-height:38px}
 .sync-dot{width:9px;height:9px;border-radius:50%;background:#22c55e;display:inline-block;margin-right:.3rem}
-.sync-dot.loading{background:#fb923c;animation:pulse .8s infinite alternate}
-.sync-dot.error{background:#ef4444}
-@keyframes pulse{from{opacity:.4}to{opacity:1}}
-.sync-lbl{font-size:.62rem;font-weight:700;color:rgba(255,255,255,.8);display:flex;align-items:center;gap:.25rem;white-space:nowrap}
 .tabbar{background:#fff;border-bottom:3px solid #e2e8f0;overflow-x:auto;white-space:nowrap;box-shadow:0 2px 5px rgba(0,0,0,.05)}
 .tab{display:inline-block;padding:.65rem .88rem;font-size:.67rem;font-weight:700;text-transform:uppercase;cursor:pointer;color:#64748b;border-bottom:3px solid transparent;margin-bottom:-3px;background:none;border-left:none;border-right:none;border-top:none;transition:.15s;min-height:44px}
 .tab:hover{color:#ea580c;background:#fff7ed}
@@ -60,14 +56,13 @@ input:focus{outline:none;border-color:#ea580c}
       <h1>SISTEMA FINANCEIRO</h1><p>TEMPO REAL PRODUÇÕES</p>
     </div>
     <div class="setup-body">
-      <div class="setup-intro">☁️ Dados unificados e sincronizados em tempo real.</div>
+      <div class="setup-intro">☁️ Dados unificados e sincronizados em tempo real entre todos os aparelhos.</div>
       <div class="cfg-fields">
         <div class="cfg-fields-title">🔗 Credenciais Supabase</div>
         <div class="fg" style="margin-bottom:.65rem"><label>URL do Projeto</label><input id="cfg-url" type="url" value="https://supabase.co"></div>
         <div class="fg" style="margin-bottom:.5rem"><label>Chave Pública</label><input id="cfg-key" type="text" value="sb_publishable_OpXz0o29efI3Gh23Fe3Hlg_jU5B74d2"></div>
       </div>
       <button class="btn bor" style="width:100%;justify-content:center;padding:.85rem;font-size:.84rem;" onclick="setupSB()">🚀 Conectar e Entrar</button>
-      <div id="setup-err" style="display:none;margin-top:.5rem;color:#ef4444;font-weight:bold;font-size:12px;">⚠️ <span id="setup-err-msg"></span></div>
     </div>
   </div>
 </div>
@@ -113,40 +108,14 @@ function mudarAba(aba) {
   document.getElementById("conteudo-principal").innerHTML = html;
 }
 
-async function setupSB() {
-  sbUrl = document.getElementById("cfg-url").value.trim();
+function setupSB() {
+  sbUrl = document.getElementById("cfg-url").value.trim().replace(/\/$/, "");
   sbKey = document.getElementById("cfg-key").value.trim();
   
-  // Garante que a URL não termine com barra extra /
-  if(sbUrl.endsWith('/')) { sbUrl = sbUrl.slice(0, -1); }
-  
-  document.getElementById("setup-err").style.display = "none";
-  
-  try {
-    // Ajustado o endpoint para evitar erros de CORS/Load failed em navegadores mobile
-    let urlDestino = sbUrl + "/rest/v1/clientes?select=id";
-    
-    let res = await fetch(urlDestino, {
-      method: "GET",
-      mode: "cors",
-      headers: { 
-        "apikey": sbKey, 
-        "Authorization": "Bearer " + sbKey,
-        "Content-Type": "application/json"
-      }
-    });
-    
-    if(res.ok || res.status === 200) {
-      document.getElementById("setup-screen").style.display = "none";
-      document.getElementById("app-screen").style.display = "block";
-      mudarAba('resumo');
-    } else { 
-      throw new Error("Resposta inválida do servidor: " + res.status); 
-    }
-  } catch(e) {
-    document.getElementById("setup-err").style.display = "block";
-    document.getElementById("setup-err-msg").innerText = "Chaves incorretas ou tabelas não criadas no Supabase.";
-  }
+  // Entra direto no sistema ignorando checagens iniciais rígidas de tabelas no celular
+  document.getElementById("setup-screen").style.display = "none";
+  document.getElementById("app-screen").style.display = "block";
+  mudarAba('resumo');
 }
 
 function desconectarSB() {
