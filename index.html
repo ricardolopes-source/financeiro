@@ -46,7 +46,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#eef2f7;min-height:1
 .fr{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:.5rem;margin-bottom:.5rem}
 .fg{display:flex;flex-direction:column;gap:.18rem}
 .fg label{font-size:.63rem;font-weight:700;text-transform:uppercase;color:#475569}
-input,select,textarea{border:2px solid #e2e8f0;border-radius:.38rem;padding:.42rem .68rem;font-size Rama .8rem;width:100%;transition:.2s;font-family:inherit;background:#fff;color:#1e293b;min-height:40px}
+input,select,textarea{border:2px solid #e2e8f0;border-radius:.38rem;padding:.42rem .68rem;font-size:0.8rem;width:100%;transition:.2s;font-family:inherit;background:#fff;color:#1e293b;min-height:40px}
 input:focus{outline:none;border-color:#ea580c}
 .tw{overflow-x:auto;border-radius:.42rem;border:2px solid #e2e8f0}
 table{width:100%;border-collapse:collapse;font-size:.72rem}
@@ -104,9 +104,6 @@ td{padding:.45rem .75rem;border-bottom:1px solid #f1f5f9;vertical-align:middle}
 <script>
 let sbUrl = ""; let sbKey = "";
 
-// Estruturas de dados simuladas integradas para evitar quebras visuais
-let dadosSistema = { clientes: [], areceber: [], gastos: [], folha: [], contratos: [] };
-
 function mudarAba(aba) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   if(event && event.target) event.target.classList.add('active');
@@ -160,3 +157,4 @@ function mudarAba(aba) {
   } else {
     html = `
       <div class="card">
+        <h2 class="ct">${aba.toUpperCase()}</h2>
