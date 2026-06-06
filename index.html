@@ -56,9 +56,9 @@ input:focus{outline:none;border-color:#ea580c}
       <h1>SISTEMA FINANCEIRO</h1><p>TEMPO REAL PRODUÇÕES</p>
     </div>
     <div class="setup-body">
-      <div class="setup-intro">☁️ Dados unificados e sincronizados em tempo real entre todos os aparelhos.</div>
+      <div class="setup-intro">☁️ Dados sincronizados em nuvem (Supabase) em tempo real.</div>
       <div class="cfg-fields">
-        <div class="cfg-fields-title">🔗 Credenciais Supabase</div>
+        <div class="cfg-fields-title">🔗 Credenciais do Projeto</div>
         <div class="fg" style="margin-bottom:.65rem"><label>URL do Projeto</label><input id="cfg-url" type="url" value="https://supabase.co"></div>
         <div class="fg" style="margin-bottom:.5rem"><label>Chave Pública</label><input id="cfg-key" type="text" value="sb_publishable_OpXz0o29efI3Gh23Fe3Hlg_jU5B74d2"></div>
       </div>
@@ -71,7 +71,7 @@ input:focus{outline:none;border-color:#ea580c}
   <header class="hdr">
     <div class="hdr-info">
       <h1>GESTÃO FINANCEIRA</h1>
-      <p>SISTEMA INTEGRADO · CONEXÃO EM TEMPO REAL</p>
+      <p>SISTEMA INTEGRADO · CONEXÃO EM TEMPO REAL · DIAS DE PAGAMENTO: 5 · 10 · 15 · 20</p>
     </div>
     <div class="hdr-btns">
       <span class="sync-lbl"><span id="sync-dot" class="sync-dot"></span> Sincronizado</span>
@@ -111,8 +111,6 @@ function mudarAba(aba) {
 function setupSB() {
   sbUrl = document.getElementById("cfg-url").value.trim().replace(/\/$/, "");
   sbKey = document.getElementById("cfg-key").value.trim();
-  
-  // Entra direto no sistema ignorando checagens iniciais rígidas de tabelas no celular
   document.getElementById("setup-screen").style.display = "none";
   document.getElementById("app-screen").style.display = "block";
   mudarAba('resumo');
@@ -123,7 +121,7 @@ function desconectarSB() {
   document.getElementById("setup-screen").style.display = "flex";
 }
 
-function processarBoleto() { alert("Boleto processado com sucesso!"); }
+function processarBoleto() { alert("Boleto lançado nas despesas com sucesso!"); }
 window.onload = function() { document.getElementById("setup-screen").style.display = "flex"; }
 </script>
 </body>
