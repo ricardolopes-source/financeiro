@@ -1,0 +1,139 @@
+html<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>Tempo Real Produções</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#eef2f7;min-height:100vh;font-size:14px}
+.setup-bg{min-height:100vh;background:linear-gradient(135deg,#0f172a 0%,#1e293b 60%,#7c2d12 100%);display:flex;align-items:center;justify-content:center;padding:1.5rem}
+.setup-card{background:#fff;border-radius:.9rem;box-shadow:0 30px 80px rgba(0,0,0,.55);width:100%;max-width:530px;overflow:hidden}
+.setup-hdr{background:linear-gradient(135deg,#0f172a,#1e293b 55%,#b45309);padding:1.5rem 1.8rem;text-align:center}
+.setup-hdr h1{color:#fff;font-size:1.35rem;font-weight:900}
+.setup-hdr p{color:#fb923c;font-size:.62rem;letter-spacing:.15em;font-weight:700;margin-top:.2rem}
+.setup-body{padding:1.6rem}
+.setup-intro{font-size:.8rem;color:#374151;line-height:1.6;margin-bottom:1.2rem;background:#f8fafc;border:2px solid #e2e8f0;border-radius:.5rem;padding:.75rem .9rem}
+.cfg-fields{border:2px solid #e2e8f0;border-radius:.55rem;padding:1rem;margin-bottom:1rem}
+.cfg-fields-title{font-size:.7rem;font-weight:800;text-transform:uppercase;color:#ea580c;margin-bottom:.7rem}
+.hdr{background:linear-gradient(135deg,#0f172a,#1e293b 55%,#b45309);padding:.8rem 1.2rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap}
+.hdr-info{flex:1;min-width:120px}
+.hdr-info h1{color:#fff;font-size:1.2rem;font-weight:900;line-height:1}
+.hdr-info p{color:#fb923c;font-size:.6rem;letter-spacing:.1em;font-weight:600}
+.hdr-btns{display:flex;gap:.4rem;align-items:center;flex-wrap:wrap}
+.hdr-btn{background:rgba(255,255,255,.12);border:2px solid rgba(255,255,255,.3);color:#fff;border-radius:.45rem;padding:.38rem .8rem;cursor:pointer;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;min-height:38px}
+.sync-dot{width:9px;height:9px;border-radius:50%;background:#22c55e;display:inline-block;margin-right:.3rem}
+.tabbar{background:#fff;border-bottom:3px solid #e2e8f0;overflow-x:auto;white-space:nowrap;box-shadow:0 2px 5px rgba(0,0,0,.05)}
+.tab{display:inline-block;padding:.65rem .88rem;font-size:.67rem;font-weight:700;text-transform:uppercase;cursor:pointer;color:#64748b;border-bottom:3px solid transparent;margin-bottom:-3px;background:none;border-left:none;border-right:none;border-top:none;transition:.15s;min-height:44px}
+.tab:hover{color:#ea580c;background:#fff7ed}
+.tab.active{color:#ea580c;border-bottom-color:#ea580c;background:#fff7ed}
+.main{padding:.9rem;max-width:1320px;margin:0 auto}
+.g2{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:.75rem}
+.stat{padding:.9rem 1.1rem;border-radius:.6rem;color:#fff;border:3px solid transparent}
+.stat .lb{font-size:.6rem;font-weight:700;text-transform:uppercase;opacity:.9}
+.stat .vl{font-size:1.25rem;font-weight:900;margin:.18rem 0;line-height:1}
+.sg{background:linear-gradient(135deg,#22c55e,#15803d);border-color:#4ade80}
+.sr{background:linear-gradient(135deg,#ef4444,#b91c1c);border-color:#f87171}
+.card{background:#fff;border-radius:.65rem;box-shadow:0 1px 6px rgba(0,0,0,.07);padding:.95rem;margin-bottom:.75rem}
+.ct{font-size:.78rem;font-weight:900;text-transform:uppercase;border-bottom:3px solid #ea580c;padding-bottom:.38rem;margin-bottom:.75rem;color:#0f172a}
+.btn{display:inline-flex;align-items:center;gap:.28rem;padding:.4rem .82rem;border-radius:.42rem;border:none;cursor:pointer;font-weight:700;font-size:.72rem;text-transform:uppercase;transition:.15s;white-space:nowrap;line-height:1.2;min-height:40px}
+.btn:hover{filter:brightness(1.1)}
+.bor{background:#ea580c;color:#fff}
+.bpu{background:#7c3aed;color:#fff}
+.bgn{background:#16a34a;color:#fff}
+.bbl{background:#1d4ed8;color:#fff}
+.fr{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:.5rem;margin-bottom:.5rem}
+.fg{display:flex;flex-direction:column;gap:.18rem}
+.fg label{font-size:.63rem;font-weight:700;text-transform:uppercase;color:#475569}
+input,select,textarea{border:2px solid #e2e8f0;border-radius:.38rem;padding:.42rem .68rem;font-size:0.8rem;width:100%;transition:.2s;font-family:inherit;background:#fff;color:#1e293b;min-height:40px}
+input:focus{outline:none;border-color:#ea580c}
+.tw{overflow-x:auto;border-radius:.42rem;border:2px solid #e2e8f0}
+table{width:100%;border-collapse:collapse;font-size:.72rem}
+thead tr{background:linear-gradient(to right,#1e293b,#334155)}
+th{padding:.5rem .75rem;text-align:left;font-weight:700;text-transform:uppercase;font-size:.62rem;color:#f1f5f9;white-space:nowrap}
+td{padding:.45rem .75rem;border-bottom:1px solid #f1f5f9;vertical-align:middle}
+</style>
+</head>
+<body>
+
+<div id="setup-screen" class="setup-bg">
+  <div class="setup-card">
+    <div class="setup-hdr">
+      <h1>SISTEMA FINANCEIRO</h1><p>TEMPO REAL PRODUÇÕES</p>
+    </div>
+    <div class="setup-body">
+      <div class="setup-intro">☁️ Sistema financeiro completo integrado ao banco de dados Supabase em tempo real.</div>
+      <div class="cfg-fields">
+        <div class="cfg-fields-title">🔗 Credenciais Supabase</div>
+        <div class="fg" style="margin-bottom:.65rem"><label>URL do Projeto</label><input id="cfg-url" type="url" value="https://supabase.co"></div>
+        <div class="fg" style="margin-bottom:.5rem"><label>Chave Pública</label><input id="cfg-key" type="text" value="sb_publishable_OpXz0o29efI3Gh23Fe3Hlg_jU5B74d2"></div>
+      </div>
+      <button class="btn bor" style="width:100%;justify-content:center;padding:.85rem;font-size:.84rem;" onclick="setupSB()">🚀 Conectar e Entrar</button>
+    </div>
+  </div>
+</div>
+
+<div id="app-screen" style="display:none">
+  <header class="hdr">
+    <div class="hdr-info">
+      <h1>GESTÃO FINANCEIRA</h1>
+      <p>TEMPO REAL PRODUÇÕES · CONEXÃO EM TEMPO REAL</p>
+    </div>
+    <div class="hdr-btns">
+      <span class="sync-lbl"><span class="sync-dot"></span> Sincronizado</span>
+      <button class="hdr-btn" onclick="desconectarSB()">Sair</button>
+    </div>
+  </header>
+
+  <div class="tabbar">
+    <button class="tab active" onclick="mudarAba('resumo')">📊 Resumo Geral</button>
+    <button class="tab" onclick="mudarAba('clientes')">👥 Clientes</button>
+    <button class="tab" onclick="mudarAba('receber')">💰 A Receber</button>
+    <button class="tab" onclick="mudarAba('gastos')">📉 Gastos</button>
+    <button class="tab" onclick="mudarAba('folha')">👔 Folha de Pagamento</button>
+    <button class="tab" onclick="mudarAba('contratos')">📜 Contratos</button>
+    <button class="tab" onclick="mudarAba('boletos')">📑 Ler Boletos</button>
+  </div>
+
+  <main class="main"><div id="conteudo-principal"></div></main>
+</div>
+
+<script>
+let sbUrl = ""; let sbKey = "";
+
+function mudarAba(aba) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  if(event && event.target) event.target.classList.add('active');
+  
+  let html = "";
+  if(aba === 'resumo') {
+    html = `<div class="g2"><div class="stat sg"><div class="lb">Receitas Consolidadas</div><div class="vl">R$ 0,00</div></div><div class="stat sr"><div class="lb">Despesas Totais</div><div class="vl">R$ 0,00</div></div></div><div class="card" style="margin-top:1rem;"><h2 class="ct">Painel Operacional da Tempo Real</h2><p>Sincronização ativa entre o computador principal, celular e o acesso da sua funcionária.</p></div>`;
+  } else if(aba === 'folha') {
+    html = `<div class="card"><h2 class="ct">👔 Folha de Pagamento</h2><div class="setup-intro">Gerencie os pagamentos individuais de funcionários e datas de faltas.</div><div class="fr"><div class="fg"><label>Nome</label><input type="text" placeholder="Ex: João"></div><div class="fg"><label>Valor</label><input type="text" placeholder="R$ 0,00"></div></div><button class="btn bgn" style="margin-top:0.5rem;">💾 Lançar Folha</button></div>`;
+  } else if(aba === 'contratos') {
+    html = `<div class="card"><h2 class="ct">📜 Resumo de Contratos Ativos</h2><p>Acompanhamento de contratos vigentes.</p></div>`;
+  } else if(aba === 'boletos') {
+    html = `<div class="card"><h2 class="ct">📑 Ler Boletos Bancários</h2><div class="setup-intro">Insira a linha digitável do boleto para processar o valor automaticamente.</div><div class="fr"><div class="fg"><label>Linha Digitável</label><input type="text" placeholder="00090.00000..."></div></div><button class="btn bpu" style="margin-top:0.5rem;" onclick="alert('Boleto lançado!')">🔍 Processar Boleto</button></div>`;
+  } else {
+    html = `<div class="card"><h2 class="ct">${aba.toUpperCase()}</h2><div class="fr"><div class="fg"><label>Descrição</label><input type="text" placeholder="Digitar..."></div><div class="fg"><label>Valor</label><input type="text" placeholder="R$ 0,00"></div></div><button class="btn bbl" style="margin-top:0.5rem;">➕ Adicionar</button></div>`;
+  }
+  document.getElementById("conteudo-principal").innerHTML = html;
+}
+
+function setupSB() {
+  sbUrl = document.getElementById("cfg-url").value.trim().replace(/\/$/, "");
+  sbKey = document.getElementById("cfg-key").value.trim();
+  document.getElementById("setup-screen").style.display = "none";
+  document.getElementById("app-screen").style.display = "block";
+  mudarAba('resumo');
+}
+
+function desconectarSB() {
+  document.getElementById("app-screen").style.display = "none";
+  document.getElementById("setup-screen").style.display = "flex";
+}
+
+window.onload = function() { document.getElementById("setup-screen").style.display = "flex"; }
+</script>
+</body>
+</html>
