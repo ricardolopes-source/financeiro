@@ -136,8 +136,13 @@ pre{font-family:'Courier New',monospace;font-size:.68rem;white-space:pre-wrap;li
 .banco-btn{padding:.6rem 1rem;border-radius:.5rem;border:3px solid;cursor:pointer;font-weight:800;font-size:.78rem;text-align:center;transition:.15s;min-width:100px;background:#fff}
 .banco-btn:hover{filter:brightness(.97)}
 .banco-btn.sel{color:#fff!important}
-.ext-ta{font-family:'Courier New',monospace;font-size:13px;line-height:1.6;min-height:220px;border:2px dashed #94a3b8;border-radius:.5rem;padding:.75rem;resize:vertical;background:#f8fafc;color:#1e293b;width:100%}
+.ext-ta{font-family:'Courier New',monospace;font-size:13px;line-height:1.6;min-height:180px;border:2px dashed #94a3b8;border-radius:.5rem;padding:.75rem;resize:vertical;background:#f8fafc;color:#1e293b;width:100%}
 .ext-ta:focus{border-color:#ea580c;border-style:solid;outline:none;box-shadow:0 0 0 3px rgba(234,88,12,.1);background:#fff}
+.ext-dropzone{border:3px dashed #94a3b8;border-radius:12px;padding:32px 20px;text-align:center;cursor:pointer;transition:.2s;background:#f8fafc;margin-bottom:.75rem}
+.ext-dropzone:hover,.ext-dropzone.drag{border-color:#ea580c;background:#fff5f0;border-style:solid}
+.ext-dropzone .dz-icon{font-size:42px;margin-bottom:8px}
+.ext-dropzone .dz-txt{font-size:15px;font-weight:700;color:#334155;margin-bottom:4px}
+.ext-dropzone .dz-sub{font-size:12px;color:#94a3b8}
 .ext-row-e{background:#fff0f0}.ext-row-r{background:#f0fff4}
 .ext-badge-e{background:#fee2e2;color:#b91c1c;font-size:.6rem;font-weight:700;padding:.1rem .4rem;border-radius:999px}
 .ext-badge-r{background:#dcfce7;color:#15803d;font-size:.6rem;font-weight:700;padding:.1rem .4rem;border-radius:999px}
@@ -406,7 +411,7 @@ function downloadHTML(){try{var html='<!DOCTYPE html>\n'+document.documentElemen
 // ══════════════════════════════════════════════
 //  MÓDULO EXTRATO — Estado e Inicialização
 // ══════════════════════════════════════════════
-var EXT = {aba:'importar', banco:'bb', trans:[], regras:[], saldos:[]};
+var EXT = {aba:'importar', banco:'bb_cc', trans:[], regras:[], saldos:[]};
 
 var EXT_REGRAS_PADRAO = [
   {kw:'TEMPO REAL', cliId:'__tr__'},
@@ -504,43 +509,160 @@ function extCliNome(id) {
 }
 
 // ── PARSER MULTI-BANCO ──
+// ── Parser Nubank App (multi-linha) ─────────────────────────────────────
+// Formato:   14 JUL          ← data
+//            •••• 2189  Desc ← cartão + descrição
+//            R$ 18,95        ← valor
+function extParseNubankApp(texto, banco) {
+  var MESES={JAN:'01',FEV:'02',MAR:'03',ABR:'04',MAI:'05',JUN:'06',JUL:'07',AGO:'08',SET:'09',OUT:'10',NOV:'11',DEZ:'12'};
+  var linhas=texto.split('\n').map(function(l){return l.trim();}).filter(function(l){return l.length>0;});
+  var trans=[];
+  var reData=/^(\d{1,2})\s+(JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ)$/i;
+  var reValor=/^R\$\s*([\d.,]+)$/;
+  var ano=new Date().getFullYear();
+  var i=0;
+  while(i<linhas.length){
+    var mD=reData.exec(linhas[i]);
+    if(mD && i+2<linhas.length){
+      var dia=mD[1].padStart(2,'0');
+      var mes=MESES[mD[2].toUpperCase()];
+      var dataStr=ano+'-'+mes+'-'+dia;
+      // linha seguinte: •••• XXXX  Descrição
+      var hist=linhas[i+1].replace(/^[•\*·]+\s*\d*\s*/,'').trim().toUpperCase();
+      var mV=reValor.exec(linhas[i+2]);
+      if(mV && hist){
+        var valor=extParseValor(mV[1]);
+        var tipo='E'; // fatura cartão sempre saída
+        trans.push({id:uid(),data:dataStr,hist:hist,valor:valor,tipo:tipo,cliId:extClassificar(hist,tipo),banco:banco});
+        i+=3; continue;
+      }
+    }
+    i++;
+  }
+  return trans;
+}
+
+// ── Parser BB/Bradesco App (multi-linha) ─────────────────────────────────
+// Formato que pode vir do app mobile (cada campo em linha separada):
+//   08/09
+//   SALDO ANTERIOR
+//   2007,13
+//   C  (ou D)
+function extParseBBApp(texto, banco) {
+  var linhas=texto.split('\n').map(function(l){return l.trim();}).filter(function(l){return l.length>0;});
+  var trans=[];
+  var reData=/^(\d{2}\/\d{2}(?:\/\d{2,4})?)$/;
+  var reValor=/^[\d]+[.,]\d{2}$/;
+  var reCD=/^[CD]$/i;
+  var i=0;
+  while(i<linhas.length){
+    if(reData.exec(linhas[i]) && i+2<linhas.length){
+      var data=extParseData(linhas[i]);
+      var hist=linhas[i+1].toUpperCase();
+      // pula linhas de header ou vazias
+      if(hist==='DATA'||hist==='HISTÓRICO'||hist==='HISTORICO'||hist==='VALOR (R$)'){i++;continue;}
+      if(reValor.exec(linhas[i+2])){
+        var valor=extParseValor(linhas[i+2]);
+        var tipo='R';
+        if(i+3<linhas.length && reCD.exec(linhas[i+3])){
+          tipo=linhas[i+3].toUpperCase()==='C'?'R':'E'; i+=4;
+        } else {
+          // sem C/D: tenta deduzir pela descrição
+          tipo=extClassificarTipo(hist); i+=3;
+        }
+        trans.push({id:uid(),data:data,hist:hist,valor:valor,tipo:tipo,cliId:extClassificar(hist,tipo),banco:banco});
+        continue;
+      }
+    }
+    i++;
+  }
+  return trans;
+}
+
+function extClassificarTipo(hist){
+  var h=hist.toUpperCase();
+  if(h.indexOf('SALDO')>=0||h.indexOf('CREDITO')>=0||h.indexOf('CRÉD')>=0||h.indexOf('PIX RECEBIDO')>=0||h.indexOf('TED CREDITO')>=0) return 'R';
+  return 'E';
+}
+
+// ── Detector de formato ──────────────────────────────────────────────────
+function extDetectarFormato(texto){
+  // OFX/QFX: tem tag STMTTRN
+  if(/<STMTTRN>/i.test(texto)||/STMTTRN/i.test(texto)) return 'ofx';
+  // Nubank app: tem linhas "DD MMM" e linhas "R$ XX,XX"
+  if(/\d{1,2}\s+(JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ)/i.test(texto) && /R\$\s*[\d.,]+/.test(texto)) return 'nubank_app';
+  // CSV Nubank: tem linhas com data no formato YYYY-MM-DD
+  if(/^\d{4}-\d{2}-\d{2},[^,]+,[^,]+,[+-]?[\d.]+/m.test(texto)) return 'nubank_csv';
+  // BB/Bradesco multi-linha: tem datas curtas DD/MM sozinhas em linhas
+  if(/^\d{2}\/\d{2}$/m.test(texto)) return 'bb_app';
+  // Padrão: linha única com data+hist+valor(+C/D)
+  return 'linha_unica';
+}
+
 function extParseLinhas(texto, banco) {
   var linhas = texto.split('\n');
   var trans = [];
-  // Padrões
-  var reCD  = /^(\d{2}\/\d{2}(?:\/\d{2,4})?)\s+(.+?)\s+([\d.,]+)\s+([CD])$/i;
-  var reSinal = /^(\d{2}\/\d{2}(?:\/\d{2,4})?)\s+(.+?)\s+([+-][\d.,]+)$/i;
-  var reFat = /^(\d{2}\/\d{2}(?:\/\d{2,4})?)\s+(.+?)\s+([\d.,]+)$/i;
-  var reCSV = /^(\d{4}-\d{2}-\d{2}),([^,]*),([^,]+),([+-]?[\d.]+)$/;
+  // Detecta formato automaticamente
+  var fmt = extDetectarFormato(texto);
+  if(fmt==='ofx')        return extParseOFX(texto, banco);
+  if(fmt==='nubank_app') return extParseNubankApp(texto, banco);
+  if(fmt==='bb_app')     return extParseBBApp(texto, banco);
+  // Normaliza tabs → espaço, colapsa espaços múltiplos
+  function norm(s){ return s.replace(/\t/g,' ').replace(/ {2,}/g,' ').trim(); }
+  // Padrões — aceita DD/MM, DD/MM/YY, DD/MM/YYYY
+  var reDate = '(\\d{2}\\/\\d{2}(?:\\/\\d{2,4})?)';
+  var reVal  = '([\\d.,]+(?:[.,]\\d{2})?)';
+  var reCD   = new RegExp('^'+reDate+'\\s+(.+?)\\s+'+reVal+'\\s+([CD])$','i');
+  var reSinal= new RegExp('^'+reDate+'\\s+(.+?)\\s+([+-]'+reVal+')$','i');
+  var reFat  = new RegExp('^'+reDate+'\\s+(.+?)\\s+'+reVal+'$','i');
+  var reCSV  = /^(\d{4}-\d{2}-\d{2}),([^,]*),([^,]+),([+-]?[\d.]+)$/;
+  // BB: linha pode ter saldo no final — ex: 05/06 DESCRICAO 1.234,56 C 10.000,00
+  var reCDSaldo = new RegExp('^'+reDate+'\\s+(.+?)\\s+'+reVal+'\\s+([CD])\\s+[\\d.,]+$','i');
 
   linhas.forEach(function(l) {
-    l = l.trim();
+    l = norm(l);
     if (!l || l.length < 8) return;
     var m, data, hist, valor, tipo;
 
-    if (banco === 'nubank') {
+    // Nubank CSV (conta corrente ou cartão)
+    if (banco === 'nu_cc' || banco === 'nu_cart') {
       m = reCSV.exec(l);
       if (m) {
-        // Nubank CSV: data,categoria,descricao,valor (negativo=compra, positivo=pagamento)
-        data = m[1]; // já YYYY-MM-DD
+        data = m[1]; // YYYY-MM-DD
         hist = (m[3] || m[2]).trim().toUpperCase();
         var v = parseFloat(m[4]);
         valor = Math.abs(v);
-        tipo = v < 0 ? 'E' : 'R'; // compra=saída, pagamento=entrada
-        trans.push({id: uid(), data: data, hist: hist, valor: valor, tipo: tipo, cliId: extClassificar(hist, tipo), banco: banco});
+        if (banco === 'nu_cart') {
+          tipo = 'E'; // fatura do cartão = sempre saída
+        } else {
+          tipo = v < 0 ? 'E' : 'R'; // conta corrente: negativo=saída
+        }
+        trans.push({id:uid(), data:data, hist:hist, valor:valor, tipo:tipo, cliId:extClassificar(hist,tipo), banco:banco});
       }
       return;
     }
 
-    // BB / Bradesco / Genérico: tenta C/D primeiro
-    m = reCD.exec(l);
+    // Cartão BB/Bradesco (fatura sem C/D) — sempre saída
+    if (banco === 'bb_cart') {
+      m = reFat.exec(l);
+      if (m) {
+        data = extParseData(m[1]);
+        hist = m[2].trim().toUpperCase();
+        valor = extParseValor(m[3]);
+        tipo = 'E';
+        trans.push({id:uid(), data:data, hist:hist, valor:valor, tipo:tipo, cliId:extClassificar(hist,tipo), banco:banco});
+      }
+      return;
+    }
+
+    // BB Conta / Bradesco Conta — formato C/D (com ou sem saldo no final)
+    m = reCDSaldo.exec(l) || reCD.exec(l);
     if (m) {
       data = extParseData(m[1]);
       hist = m[2].trim().toUpperCase();
       valor = extParseValor(m[3]);
-      var cd = m[4].toUpperCase();
-      tipo = (cd === 'C') ? 'R' : 'E';
-      trans.push({id: uid(), data: data, hist: hist, valor: valor, tipo: tipo, cliId: extClassificar(hist, tipo), banco: banco});
+      tipo = m[4].toUpperCase() === 'C' ? 'R' : 'E';
+      trans.push({id:uid(), data:data, hist:hist, valor:valor, tipo:tipo, cliId:extClassificar(hist,tipo), banco:banco});
       return;
     }
 
@@ -552,20 +674,18 @@ function extParseLinhas(texto, banco) {
       var vs = m[3].replace(/\./g,'').replace(',','.');
       valor = Math.abs(parseFloat(vs));
       tipo = vs.charAt(0) === '+' ? 'R' : 'E';
-      trans.push({id: uid(), data: data, hist: hist, valor: valor, tipo: tipo, cliId: extClassificar(hist, tipo), banco: banco});
+      trans.push({id:uid(), data:data, hist:hist, valor:valor, tipo:tipo, cliId:extClassificar(hist,tipo), banco:banco});
       return;
     }
 
-    // Fatura (sem C/D, sem sinal) — considera saída
-    if (banco === 'fatura') {
-      m = reFat.exec(l);
-      if (m) {
-        data = extParseData(m[1]);
-        hist = m[2].trim().toUpperCase();
-        valor = extParseValor(m[3]);
-        tipo = 'E';
-        trans.push({id: uid(), data: data, hist: hist, valor: valor, tipo: tipo, cliId: extClassificar(hist, tipo), banco: banco});
-      }
+    // Genérico sem C/D e sem sinal — usa reFat como fallback (saída)
+    m = reFat.exec(l);
+    if (m) {
+      data = extParseData(m[1]);
+      hist = m[2].trim().toUpperCase();
+      valor = extParseValor(m[3]);
+      tipo = 'E';
+      trans.push({id:uid(), data:data, hist:hist, valor:valor, tipo:tipo, cliId:extClassificar(hist,tipo), banco:banco});
     }
   });
   return trans;
@@ -635,36 +755,155 @@ function setExtAba(id) { EXT.aba = id; render(); }
 
 // ── IMPORTAR ──
 function hExtImportar() {
-  var bancoBtns = [
-    {id:'bb',    lbl:'Banco do Brasil', color:'#003f8a', sel:'#003f8a'},
-    {id:'bradesco', lbl:'Bradesco',     color:'#cc0000', sel:'#cc0000'},
-    {id:'nubank',   lbl:'Nubank',       color:'#8a05be', sel:'#8a05be'},
-    {id:'fatura',   lbl:'Fatura Cartão',color:'#0d9488', sel:'#0d9488'}
-  ].map(function(b) {
+  var bancos = [
+    {id:'bb_cc',   lbl:'BB',        sub:'Conta Corrente', color:'#003f8a', icon:'🏦'},
+    {id:'bb_cart', lbl:'BB',        sub:'Cartão',         color:'#1565c0', icon:'💳'},
+    {id:'brad_cc', lbl:'Bradesco',  sub:'Conta Corrente', color:'#cc0000', icon:'🏦'},
+    {id:'nu_cc',   lbl:'Nubank',    sub:'Conta Corrente', color:'#8a05be', icon:'🏦'},
+    {id:'nu_cart', lbl:'Nubank',    sub:'Cartão (Fatura)',color:'#6200b3', icon:'💳'}
+  ];
+
+  var bancoBtns = bancos.map(function(b) {
     var isSel = EXT.banco === b.id;
-    return '<button class="banco-btn' + (isSel ? ' sel' : '') + '" style="border-color:' + b.color + ';' + (isSel ? 'background:' + b.color : 'color:' + b.color) + '" onclick="extSetBanco(\'' + b.id + '\')">' + b.lbl + '</button>';
+    return '<button class="banco-btn' + (isSel ? ' sel' : '') + '" ' +
+      'style="border-color:' + b.color + ';' + (isSel ? 'background:' + b.color + ';color:#fff' : 'color:' + b.color) + ';min-width:90px;padding:.5rem .75rem" ' +
+      'onclick="extSetBanco(\'' + b.id + '\')">' +
+      b.icon + ' <b>' + b.lbl + '</b><br><span style="font-size:.68rem;font-weight:400;opacity:.85">' + b.sub + '</span></button>';
   }).join('');
 
   var instrucoes = {
-    bb: '<b>Banco do Brasil:</b> Acesse o Internet Banking BB → Conta Corrente → Extrato → Período desejado → Copie todas as linhas e cole abaixo.<br>Formato: <code>DD/MM/AAAA  Histórico  VALOR  C/D</code>',
-    bradesco: '<b>Bradesco:</b> Internet Banking → Extrato → Copie as linhas de transação.<br>Formato igual ao BB: <code>DD/MM/AAAA  Histórico  VALOR  C/D</code>',
-    nubank: '<b>Nubank:</b> App ou site → Extrato → Exportar CSV → Abra o arquivo e copie o conteúdo.<br>Formato CSV: <code>date,category,title,amount</code> (valores negativos = compras, positivos = pagamentos)',
-    fatura: '<b>Fatura de Cartão:</b> Cole as linhas da fatura. Todos os lançamentos serão classificados como Saída.<br>Formato: <code>DD/MM/AAAA  Descrição  VALOR</code>'
+    bb_cc:   '<b>BB Conta Corrente:</b> Internet Banking BB → Conta Corrente → Extrato → selecione o período → copie e cole abaixo.<br>Formato esperado: <code>DD/MM/AAAA&nbsp;&nbsp;Histórico&nbsp;&nbsp;VALOR&nbsp;&nbsp;C/D</code>',
+    bb_cart: '<b>BB Cartão:</b> Internet Banking BB → Cartão de Crédito → Fatura → copie as linhas de lançamento e cole abaixo.<br>Formato esperado: <code>DD/MM/AAAA&nbsp;&nbsp;Descrição&nbsp;&nbsp;VALOR</code> (tudo será classificado como Saída)',
+    brad_cc: '<b>Bradesco Conta Corrente:</b> Internet Banking Bradesco → Extrato → copie e cole abaixo.<br>Formato esperado: <code>DD/MM/AAAA&nbsp;&nbsp;Histórico&nbsp;&nbsp;VALOR&nbsp;&nbsp;C/D</code>',
+    nu_cc:   '<b>Nubank Conta Corrente:</b> App Nubank → Extrato → "Exportar" → abra o CSV, selecione tudo e cole abaixo.<br>Formato CSV: <code>date,category,title,amount</code>',
+    nu_cart: '<b>Nubank Cartão (Fatura):</b> App Nubank → Cartão → Fatura → "Exportar CSV" → abra o arquivo e cole abaixo.<br>Formato CSV: <code>date,category,title,amount</code> (negativos = compras)'
+  };
+
+  var placeholder = {
+    bb_cc:   '05/06/2026  PIX RECEBIDO TEMPO REAL  15.870,00  C\n10/06/2026  CONDOMINIO BORA BORA  3.200,00  D',
+    bb_cart: '05/06/2026  AMAZON  189,90\n10/06/2026  IFOOD  52,30',
+    brad_cc: '05/06/2026  PIX RECEBIDO  8.000,00  C\n10/06/2026  TED ENVIADO  1.500,00  D',
+    nu_cc:   'date,category,title,amount\n2026-06-05,Pix,Tempo Real Producoes,15870.00\n2026-06-10,Moradia,Condominio Bora Bora,-3200.00',
+    nu_cart: 'date,category,title,amount\n2026-06-05,Restaurante,iFood,-52.30\n2026-06-10,Mercado,Supermercado Extra,-234.80'
+  };
+
+  var formatos = {
+    bb_cc:'Arraste o arquivo OFX exportado pelo BB (Internet Banking → Extrato → Exportar OFX)',
+    bb_cart:'Arraste o arquivo OFX ou CSV da fatura BB',
+    brad_cc:'Arraste o arquivo OFX exportado pelo Bradesco (Internet Banking → Extrato → Exportar OFX)',
+    nu_cc:'Arraste o arquivo CSV exportado pelo Nubank (App → Extrato → Exportar planilha)',
+    nu_cart:'Arraste o arquivo CSV da fatura Nubank (App → Cartão → Fatura → Exportar CSV)'
   };
 
   return '<div class="ct">🏦 Importar Extrato Bancário</div>' +
+    '<p style="color:#64748b;font-size:.8rem;margin:0 0 .75rem">Selecione o banco, depois arraste o arquivo ou cole o texto do extrato.</p>' +
     '<div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.75rem">' + bancoBtns + '</div>' +
-    '<div class="alrt alrt-i" style="margin-bottom:.75rem">ℹ️ ' + (instrucoes[EXT.banco] || '') + '</div>' +
-    '<div class="fg" style="margin-bottom:.75rem"><label style="font-size:.7rem;font-weight:800;text-transform:uppercase;color:#475569;margin-bottom:.3rem;display:block">Cole o texto do extrato abaixo:</label>' +
-    '<textarea id="ext-input" class="ext-ta" placeholder="Cole aqui o extrato copiado do banco...\n\nExemplo BB:\n05/06/2026  Pix - Recebido Tempo Real  15.870,00  C\n10/06/2026  Condominio Bora Bora  3.200,00  D\n\nExemplo Nubank:\n2026-06-05,Pix,Tempo Real Producoes,-15870.00"></textarea></div>' +
+    // Zona de arrastar
+    '<div class="ext-dropzone" id="ext-dz" onclick="document.getElementById(\'ext-file\').click()" ondragover="extDragOver(event)" ondragleave="extDragLeave(event)" ondrop="extDrop(event)">'+
+    '<div class="dz-icon">📂</div>'+
+    '<div class="dz-txt">Arraste o arquivo aqui ou clique para selecionar</div>'+
+    '<div class="dz-sub">'+(formatos[EXT.banco]||'')+'</div>'+
+    '<input type="file" id="ext-file" accept=".csv,.ofx,.qfx,.txt" style="display:none" onchange="extArquivo(this.files[0])">'+
+    '</div>'+
+    // Separador
+    '<div style="display:flex;align-items:center;gap:10px;margin:.5rem 0;color:#94a3b8;font-size:.75rem">'+
+    '<div style="flex:1;height:1px;background:#e2e8f0"></div><span>ou cole o texto abaixo</span><div style="flex:1;height:1px;background:#e2e8f0"></div></div>'+
+    // Textarea
+    '<div class="fg" style="margin-bottom:.75rem">'+
+    '<textarea id="ext-input" class="ext-ta" placeholder="' + (placeholder[EXT.banco] || '').replace(/"/g,'&quot;') + '"></textarea></div>' +
     '<div style="display:flex;gap:.5rem;flex-wrap:wrap">' +
-    '<button class="btn bor" onclick="extProcessar()">⚡ Processar Extrato</button>' +
+    '<button class="btn bor" onclick="extProcessar()">⚡ Processar</button>' +
     '<button class="btn bgy" onclick="extLimpar()">🗑 Limpar Tudo</button>' +
     (EXT.trans.length ? '<span style="align-self:center;font-size:.72rem;color:#16a34a;font-weight:700">✅ ' + EXT.trans.length + ' transações carregadas</span>' : '') +
     '</div>';
 }
 
 function extSetBanco(b) { EXT.banco = b; render(); }
+
+// ── Drag & Drop ──────────────────────────────────────────────────────────
+function extDragOver(e){ e.preventDefault(); var dz=document.getElementById('ext-dz'); if(dz)dz.classList.add('drag'); }
+function extDragLeave(e){ var dz=document.getElementById('ext-dz'); if(dz)dz.classList.remove('drag'); }
+function extDrop(e){
+  e.preventDefault();
+  var dz=document.getElementById('ext-dz'); if(dz)dz.classList.remove('drag');
+  var file=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];
+  if(file) extArquivo(file);
+}
+
+function extArquivo(file){
+  if(!file) return;
+  var reader=new FileReader();
+  reader.onload=function(ev){
+    var texto=ev.target.result;
+    var ta=document.getElementById('ext-input');
+    if(ta) ta.value=texto;
+    // Processa automaticamente
+    var novas=extParseLinhas(texto, EXT.banco);
+    if(!novas.length){ info('⚠️ Nenhuma transação reconhecida no arquivo "'+file.name+'". Verifique se o banco selecionado está correto.'); return; }
+    var existKeys={};
+    EXT.trans.forEach(function(t){ existKeys[t.data+'|'+t.hist+'|'+t.valor]=1; });
+    var adicionadas=0;
+    novas.forEach(function(t){
+      var k=t.data+'|'+t.hist+'|'+t.valor;
+      if(!existKeys[k]){ EXT.trans.push(t); existKeys[k]=1; adicionadas++; }
+    });
+    extSave(); EXT.aba='transacoes'; render();
+    setTimeout(function(){ info('✅ '+adicionadas+' transações importadas de "'+file.name+'"!'); },100);
+  };
+  reader.onerror=function(){ info('Erro ao ler o arquivo.'); };
+  reader.readAsText(file, 'UTF-8');
+}
+
+// ── Parser OFX (BB e Bradesco) ───────────────────────────────────────────
+function extParseOFX(texto, banco){
+  var trans=[];
+  // OFX pode ser SGML ou XML — extrai blocos <STMTTRN>...</STMTTRN>
+  var reBloco=/<STMTTRN>([\s\S]*?)<\/STMTTRN>/gi;
+  var reTag=/<(\w+)>([^<\n\r]*)/g;
+  var bloco;
+  while((bloco=reBloco.exec(texto))!==null){
+    var campos={};
+    var tag;
+    reTag.lastIndex=0;
+    while((tag=reTag.exec(bloco[1]))!==null) campos[tag[1].toUpperCase()]=tag[2].trim();
+    // SGML (sem fechamento): <TAG>valor\n
+    if(!Object.keys(campos).length){
+      bloco[1].split(/\r?\n/).forEach(function(l){
+        var m=l.match(/^<(\w+)>(.+)$/);
+        if(m) campos[m[1].toUpperCase()]=m[2].trim();
+      });
+    }
+    var dtRaw=campos['DTPOSTED']||'';
+    // YYYYMMDD ou YYYYMMDDHHMMSS
+    var data=dtRaw.length>=8?(dtRaw.slice(0,4)+'-'+dtRaw.slice(4,6)+'-'+dtRaw.slice(6,8)):'';
+    var valorRaw=parseFloat(campos['TRNAMT']||0);
+    var hist=(campos['MEMO']||campos['NAME']||'').toUpperCase().replace(/\s+/g,' ').trim();
+    if(!hist||!data) continue;
+    var valor=Math.abs(valorRaw);
+    var tipo=valorRaw>=0?'R':'E';
+    trans.push({id:uid(),data:data,hist:hist,valor:valor,tipo:tipo,cliId:extClassificar(hist,tipo),banco:banco});
+  }
+  // OFX SGML sem tags de fechamento — tenta fallback linha a linha
+  if(!trans.length){
+    var blocos=texto.split('<STMTTRN>');
+    blocos.slice(1).forEach(function(b){
+      var campos={};
+      b.split(/\r?\n/).forEach(function(l){
+        var m=l.trim().match(/^<(\w+)>(.+)$/);
+        if(m) campos[m[1].toUpperCase()]=m[2].trim();
+      });
+      var dtRaw=campos['DTPOSTED']||'';
+      var data=dtRaw.length>=8?(dtRaw.slice(0,4)+'-'+dtRaw.slice(4,6)+'-'+dtRaw.slice(6,8)):'';
+      var valorRaw=parseFloat(campos['TRNAMT']||0);
+      var hist=(campos['MEMO']||campos['NAME']||'').toUpperCase().trim();
+      if(!hist||!data) return;
+      var valor=Math.abs(valorRaw);
+      var tipo=valorRaw>=0?'R':'E';
+      trans.push({id:uid(),data:data,hist:hist,valor:valor,tipo:tipo,cliId:extClassificar(hist,tipo),banco:banco});
+    });
+  }
+  return trans;
+}
 
 function extProcessar() {
   var texto = document.getElementById('ext-input') ? document.getElementById('ext-input').value : '';
@@ -928,13 +1167,40 @@ function extReaplicarRegras() {
 (function(){
   var lg=localStorage.getItem('trLogo');
   if(lg)setLogo(lg);
-  showLoading('Carregando dados…');
-  loadAll(true).then(function(ok){
-    hideLoading();
-    if(ok){extInit();showAppScreen();render();startSync();}
-    else{alert('Erro ao conectar ao banco de dados. Verifique sua conexão com a internet.');}
-  }).catch(function(e){hideLoading();console.error(e);alert('Erro inesperado: '+e.message);});
+  // Mostra tela de carregamento imediatamente
+  document.getElementById('setup-screen').style.display='none';
+  document.getElementById('app-screen').style.display='none';
+  showLoading('Conectando ao Supabase…');
+  // Testa conexão com diagnóstico detalhado
+  fetch(SB.url+'/rest/v1/clientes?select=id&limit=1',{headers:sbHeaders()})
+    .then(function(r){
+      if(!r.ok && r.status!==406) throw new Error('HTTP '+r.status+' na tabela clientes. Verifique se as tabelas foram criadas no Supabase.');
+      document.getElementById('loading-msg').textContent='Carregando dados…';
+      return loadAll(true);
+    })
+    .then(function(ok){
+      hideLoading();
+      if(ok){extInit();showAppScreen();render();startSync();}
+      else{hideLoading();_mostrarErro('Falha ao carregar dados do banco.');}
+    })
+    .catch(function(e){
+      hideLoading();
+      _mostrarErro(e.message||'Erro de conexão com o Supabase.');
+    });
 })();
+
+function _mostrarErro(msg){
+  document.getElementById('setup-screen').style.display='none';
+  document.getElementById('app-screen').style.display='none';
+  var d=document.createElement('div');
+  d.style.cssText='position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#0f172a;color:#fff;font-family:sans-serif;padding:32px;text-align:center';
+  d.innerHTML='<div style="font-size:48px;margin-bottom:16px">⚠️</div>'+
+    '<h2 style="margin:0 0 12px;font-size:20px">Erro de Conexão</h2>'+
+    '<p style="color:#94a3b8;max-width:400px;line-height:1.6;margin:0 0 8px">'+msg+'</p>'+
+    '<p style="color:#64748b;font-size:13px;max-width:400px;margin:0 0 24px">Projeto: rdwtmrhvmnifzhfgvqdt.supabase.co</p>'+
+    '<button onclick="location.reload()" style="padding:10px 24px;background:#3b82f6;color:#fff;border:none;border-radius:8px;font-size:15px;cursor:pointer">🔄 Tentar Novamente</button>';
+  document.body.appendChild(d);
+}
 </script>
 </body>
 </html>
